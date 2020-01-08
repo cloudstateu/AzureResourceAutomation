@@ -1,0 +1,281 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "VmType": {
+      "type": "string",
+      "defaultValue": "winos"
+    },
+    "VmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D4_v3"
+    },
+    "AdminUserName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "AdminPassword": {
+      "type": "securestring"
+    },
+    "virtualNetworkName": {
+      "type": "string",
+      "defaultValue": "Shared-Vnet"
+    },
+    "virtualNetworkResourceGroup": {
+      "type": "string",
+      "defaultValue": "ResourceAutomation"
+    },
+    "Subnet": {
+      "type": "string",
+      "defaultValue": "default"
+    },
+    "virtualMachineImage": {
+      "type": "object",
+      "defaultValue": {
+        "publisher": "MicrosoftWindowsServer",
+        "offer": "WindowsServer",
+        "sku": "2016-Datacenter",
+        "version": "latest"
+      }
+    },
+    "dataDiskRequired": {
+      "type": "string",
+      "defaultValue": "false",
+      "allowedValues": [
+        "true",
+        "false"
+      ]
+    },
+    "osDiskSize": {
+      "type": "int",
+      "defaultValue": 127
+    }
+  },
+  "resources": [
+    {
+      "name": "[variables('storageAccountName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-01-01",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "dependsOn": [
+      ],
+      "tags": {
+        "displayName": "groupsa"
+      },
+      "kind": "Storage"
+    },
+    {
+      "name": "[variables('NicName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "tags": {
+        "displayName": "[concat(parameters('VmType'), 'Nic')]"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('SubnetRef')]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('AdminPublicIpName'))]"
+              }
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[variables('NsgId')]"
+        }
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkSecurityGroups/', variables('Nsg'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[variables('Nsg')]",
+      "apiVersion": "2018-08-01",
+      "location": "[resourceGroup().location]",
+      "tags": {
+      },
+      "properties": {
+        "securityRules": [
+          {
+            "name": "rdp_rule",
+            "properties": {
+              "description": "Allow RDP",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "3389",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "default-allow-jupyter",
+            "properties": {
+              "description": "Allow jupyter",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "9999",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 101,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "default-allow-sql-server",
+            "properties": {
+              "description": "Allow SQL Server",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "1433",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 102,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "ssh_rule",
+            "properties": {
+              "description": "Allow SSH",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "22",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 200,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "jupyter-hub",
+            "properties": {
+              "description": "Allow JupyterHub",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8000",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 201,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "rstudio-server",
+            "properties": {
+              "description": "Allow R Studio Server",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8787",
+              "sourceAddressPrefix": "Internet",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 202,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('Name')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2017-03-30",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('NicName'))]"
+      ],
+      "tags": {
+        "displayName": "[parameters('VmType')]"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('VmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[concat(parameters('VmType'), 'Name')]",
+          "adminUsername": "[parameters('AdminUsername')]",
+          "adminPassword": "[parameters('AdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": "[parameters('virtualMachineImage')]",
+          "osDisk": {
+            "name": "[variables('OSDiskName')]",
+            "caching": "ReadWrite",
+            "createOption": "FromImage",
+            "diskSizeGB": "[parameters('osDiskSize')]"
+          },
+          "dataDisks": "[
+            if(equals(parameters('dataDiskRequired'), 'true'),
+              createArray(variables('DataDiskObject')),
+              json('[]')
+            )
+          ]"            
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('NicName'))]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "[variables('AdminPublicIpName')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "2016-03-30",
+      "dependsOn": [
+      ],
+      "tags": {
+        "displayName": "[concat(parameters('VmType'), 'AdminPublicIp')]"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      }
+    }
+  ],
+  "outputs": {
+    "AdminPublicIpName": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses',variables('AdminPublicIpName'))).IpAddress]"
+    }
+  },
+  "variables": {
+    "storageAccountName": "[concat('groupsa', uniqueString(resourceGroup().id))]",
+    "VnetID": "[resourceId(parameters('virtualNetworkResourceGroup'), 'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]",
+    "Name": "[concat(parameters('AdminUserName'), parameters('VmType'))]",
+    "VmSize": "[parameters('VmSize')]",
+    "NsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', variables('Nsg'))]",
+    "Nsg": "[concat(parameters('AdminUserName'), parameters('VmType'), 'nsg')]",
+    "OSDiskName": "[concat(parameters('AdminUserName'), parameters('VmType'), 'OSDisk')]",
+    "DataDisk": "[concat(parameters('AdminUserName'), '-', parameters('VmType'), 'DataDisk-1')]",
+    "DataDiskObject": {
+      "name": "[variables('DataDisk')]",
+      "lun": 0,
+      "createOption": "FromImage"
+    },
+    "SubnetRef": "[concat(variables('VnetID'), '/subnets/', parameters('Subnet'))]",
+    "NicName": "[concat(variables('Name'), 'NetworkInterface')]",
+    "AdminPublicIpName": "[concat(parameters('AdminUserName'), parameters('VmType'), 'AdminPublicIp')]",
+    "AssetsUrl": "https://deeplearningvmstg.blob.core.windows.net/assets/"
+  }
+}

@@ -1,0 +1,28 @@
+[
+    {
+        "Description": "LinuxOs | Ubuntu Server 18.04 LTS",
+        "OS": "linux",
+        "Type": "LinuxOs",
+        "Template": "machine.json",
+        "VmSize": "Standard_D4_v3",
+        "ImageReference": {
+            "publisher": "Canonical",
+            "offer": "UbuntuServer",
+            "sku": "18.04-LTS",
+            "version": "latest"
+        }
+    },
+    {
+        "Description": "WinOs | Windows Server 2016",
+        "OS": "windows",
+        "Type": "WinOs",
+        "Template": "machine.json",
+        "VmSize": "Standard_D4_v3",
+        "ImageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2016-Datacenter",
+            "version": "latest"
+        }
+    }
+]
